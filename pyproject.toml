@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "financial-modeling-skill"
+version = "1.0.0"
+description = "A Claude Code, Codex, and Antigravity skill for institutional financial modeling"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "financial-modeling-skill Contributors" }
+]
+dependencies = [
+    "openpyxl>=3.1.2",
+    "formulas>=1.2.9",
+]
+
+[project.scripts]
+check-model = "scripts.check_model:main"
+new-model = "scripts.new_model:main"
