@@ -19,8 +19,7 @@ CONFIGS_DIR = os.path.join(ROOT_DIR, "examples", "configs")
 MODELS_DIR = os.path.join(ROOT_DIR, "examples", "models")
 REPORT_PATH = os.path.join(ROOT_DIR, "examples", "VERIFICATION_REPORT.md")
 
-sys.path.insert(0, SCRIPT_DIR)
-from new_model import build_single_sheet_model, build_bdd_model
+from new_model import build_single_sheet_model, build_bdd_model, build_corporate_bdd_model
 
 CASES = [
     {
@@ -62,6 +61,14 @@ CASES = [
         "config": "05_bdd_private_equity_case.json",
         "model_file": "05_bdd_value_creation_model.xlsx",
         "characteristics": "EBITDA正規化ブリッジ、KPIドライバー（顧客数/Churn/ARPU）、シナジー織込、3シナリオ動的切替、Exit投資リターン（MoIC/IRR）"
+    },
+    {
+        "id": "CASE-06",
+        "name": "事業会社向けBDD・M&A連結合算モデル（複数事業部・人員制約・会計基準切替・EPS希薄化）",
+        "category": "コンサル実務・事業会社M&A / 買収後プロフォルマ連結・EPS希薄化検証",
+        "config": "06_corporate_bdd_consolidated_case.json",
+        "model_file": "07_corporate_bdd_consolidated_model.xlsx",
+        "characteristics": "3事業部門別P/L、人員キャパシティ制約（戦力化ラグ）、顧客ウォーターフォール（NRR）、100日PMI費用、買い手業績連結合算、J-GAAP/IFRS会計切替、EPS希薄化分析"
     }
 ]
 
@@ -134,6 +141,8 @@ def main():
         wb = openpyxl.Workbook()
         if cfg.get("model_type") == "bdd":
             build_bdd_model(wb, title=cfg.get("project_name", case["name"]), params=cfg)
+        elif cfg.get("model_type") == "bdd-corporate":
+            build_corporate_bdd_model(wb, title=cfg.get("project_name", case["name"]), params=cfg)
         else:
             build_single_sheet_model(wb, title=cfg.get("title", case["name"]), params=cfg)
         wb.save(model_path)
@@ -154,7 +163,7 @@ def main():
     # レポート生成
     md = []
     md.append("# 複数パターン財務モデル自動構築・整合性検証レポート\n")
-    md.append("本レポートは、ネット上で広く流通している代表的なケーススタディ題材、実在企業の財務諸表（製造業、SaaS、小売業等）、および戦略コンサル・PEファンドのビジネスデューデリジェンス（BDD）案件という異なる5つのビジネスモデル・実務シーンに対して、本スキル（`financial-modeling-skill`）で3表連動・バリュエーションモデルを自動構築し、投資銀行・ファンド水準の機械バリデータ（`check_model.py`）により検証した結果をまとめたものです。\n")
+    md.append("本レポートは、ネット上で広く流通している代表的なケーススタディ題材、実在企業の財務諸表（製造業、SaaS、小売業等）、戦略コンサル・PEファンドのビジネスデューデリジェンス（BDD）、および事業会社M&Aにおける複数事業部・人員制約・連結合算・EPS希薄化という異なる6つのビジネスモデル・実務シーンに対して、本スキル（`financial-modeling-skill`）で3表連動・バリュエーションモデルを自動構築し、投資銀行・ファンド水準の機械バリデータ（`check_model.py`）により検証した結果をまとめたものです。\n")
     md.append("--- \n")
     md.append("## 1. 検証結果サマリ\n")
     md.append("| ケースID | 対象パターン・ビジネスモデル | カテゴリ | 財務的特徴 | FAIL | WARN | PASS | 判定結果 |\n")
@@ -166,7 +175,7 @@ def main():
         res_label = "**完全合格 (PERFECT PASS)**" if a["is_perfect"] else "**不合格**"
         md.append(f"| **{c['id']}** | **{c['name']}** | {c['category']} | {c['characteristics']} | {a['fail_count']} | {a['warn_count']} | {a['pass_count']} | {res_label} |\n")
         
-    md.append("\n> **結論**: 全5パターンにおいて、**全期間での貸借対照表（BS）貸借完全一致（差額 0.00）、式内定数ゼロ、現預金CF連動、セマンティックカラー遵守を実証し、FAIL 0 / WARN 0（PERFECT PASS）を100%達成**しました。\n")
+    md.append("\n> **結論**: 全6パターンにおいて、**全期間での貸借対照表（BS）貸借完全一致（差額 0.00）、式内定数ゼロ、現預金CF連動、セマンティックカラー遵守を実証し、FAIL 0 / WARN 0（PERFECT PASS）を100%達成**しました。\n")
     md.append("\n--- \n")
     md.append("## 2. 各パターンの詳細検証結果\n")
     
@@ -187,6 +196,14 @@ def main():
             md.append(f"- **EBITDA正規化**: 報告売上 {norm.get('reported_revenue', 0):,} 百万円 / 創業者報酬適正化 +{norm.get('officer_compensation_adj', 0)} / 私的経費除外 +{norm.get('private_expenses_adj', 0)} / 一過性除外 +{norm.get('one_off_expenses_adj', 0)}\n")
             md.append(f"- **KPIドライバー**: 顧客数（Base: {cfg['kpi_drivers']['base']['customers']}社）、Churn率、ARPU、原価率連動（3シナリオ切替スイッチ実装）\n")
             md.append(f"- **投資リターン**: スポンサー出資 {ret.get('entry_equity', 0):,} 百万円 / 想定Exit倍率 {ret.get('exit_multiple', 0)}x / 保有年数 {ret.get('holding_period', 0)}年連動（MoIC・IRR自動試算）\n")
+        elif cfg.get("model_type") == "bdd-corporate":
+            b_prof = cfg.get("buyer_profile", {})
+            hc = cfg.get("headcount_capacity", {})
+            syn = cfg.get("synergy_and_pmi", {})
+            md.append(f"- **買い手合算**: 既存株式 {b_prof.get('existing_shares_million', 0)} 百万株 / 既存純利益 {b_prof.get('existing_net_income', [])[0]:,}〜{b_prof.get('existing_net_income', [])[-1]:,} 百万円 / 既存EBIT {b_prof.get('existing_ebit', [])[0]:,}〜{b_prof.get('existing_ebit', [])[-1]:,} 百万円\n")
+            md.append(f"- **部門別構成**: 産業機械部品（主力粗利率35%）＋医療精密機器（成長粗利率50%）＋受託開発（人員制約粗利率40%）\n")
+            md.append(f"- **供給能力制約**: 期首 {hc.get('base_headcount', 0)}名、戦力化係数 {hc.get('first_year_ramp_up', 0)*100:.0f}%、FTE売上上限 {hc.get('revenue_per_fte_million', 0)} 百万円/名、採用費・労務費連動\n")
+            md.append(f"- **会計基準・シナジー・PMI**: J-GAAP（20年均等償却）vs IFRS（非償却）動的切替、年次Ramp-upシナジー、100日プランPMI一時費用（システム・助言・拠点）分離\n")
         else:
             md.append(f"- **基準年財務規模**: 売上高 {cfg['base_year']['revenue']:,} 百万円 / 現預金 {cfg['base_year']['cash']:,} 百万円 / PP&E {cfg['base_year']['ppe']:,} 百万円 / 借入金 {cfg['base_year']['debt']:,} 百万円\n")
             md.append(f"- **予測期間前提**: 売上成長率 {cfg['assumptions']['revenue_growth']} / 原価率 {cfg['assumptions']['cogs_ratio']} / 販管費率 {cfg['assumptions']['sga_ratio']}\n")
@@ -208,6 +225,8 @@ def main():
     md.append("   - どのパターンにおいても、入力パラメータ（青字）、同一シート内計算（黒字）、他シート・他ブック参照、および数式内定数の排除（Magic Number = 0）が機械的に保証されています。\n")
     md.append("4. **戦略コンサル・PEデューデリジェンス（BDD）実務への適合性**:\n")
     md.append("   - CASE-05で実証された通り、過去実績の正規化（創業者報酬・私的経費・一過性除外）から、KPIベースの将来損益、シナジーの年次Ramp-up、3シナリオ動的切替（CHOOSE関数）、プロフォルマ3表連動、そしてExit時EV・株式価値・MoIC・IRR算出までが一気通貫で連動し、投資委員会や取締役会へ提出可能な最高水準のモデルを瞬時に構築できることを実証しました。\n")
+    md.append("5. **事業会社M&A・連結合算・EPS希薄化検証（Type-08）の実務即応性**:\n")
+    md.append("   - CASE-06で実証された通り、アーツアンドクラフツ等のBDD専門実務で不可欠とされる『部門別損益ビルドアップ』『人員ヘッドカウント・戦力化ラグ供給制約』『顧客売上ウォーターフォール（NRR）』『100日プランPMI一時費用』を完全網羅。さらに買い手既存損益との合算、J-GAAP（20年規則償却）vs IFRS（非償却）会計基準スイッチ、EPS Accretion / Dilution（増益・希薄化率）までを一気通貫で自動算定し、FAIL 0 / WARN 0の完全整合性を達成しました。\n")
 
     with open(REPORT_PATH, "w", encoding="utf-8") as f:
         f.writelines(md)

@@ -1,0 +1,68 @@
+{
+  "project_name": "大手産業機器メーカーによる中堅精密技術企業買収におけるBDD・M&A連結合算モデル",
+  "archetype": "Type-08: 事業会社向けBDD・M&A連結合算モデル",
+  "base_year": 2025,
+  "model_type": "bdd-corporate",
+  "buyer_profile": {
+    "existing_shares_million": 50.0,
+    "existing_net_income": [5000, 5200, 5400, 5600, 5800, 6000],
+    "existing_ebit": [8000, 8300, 8600, 8900, 9200, 9500]
+  },
+  "accounting_switch": {
+    "standard": "J-GAAP",
+    "goodwill_amortization_years": 20,
+    "effective_tax_rate": 0.30
+  },
+  "segments": {
+    "segment_a": {
+      "name": "産業機械部品（主力事業）",
+      "revenue": [6000, 6200, 6400, 6600, 6800, 7000],
+      "cogs_margin": 0.65
+    },
+    "segment_b": {
+      "name": "医療精密機器（高成長事業）",
+      "revenue": [2500, 2800, 3100, 3450, 3800, 4200],
+      "cogs_margin": 0.50
+    },
+    "segment_c": {
+      "name": "受託開発サービス（キャパ制約事業）",
+      "revenue": [1500, 1600, 1750, 1900, 2100, 2300],
+      "cogs_margin": 0.60
+    }
+  },
+  "normalization": {
+    "officer_compensation_adj": 60,
+    "private_expenses_adj": 30,
+    "one_off_relocation_adj": 50
+  },
+  "headcount_capacity": {
+    "base_headcount": 100,
+    "annual_hires": [15, 20, 22, 25, 25],
+    "annual_turnover": [5, 6, 6, 7, 7],
+    "first_year_ramp_up": 0.50,
+    "revenue_per_fte_million": 20.0,
+    "hiring_cost_per_head_million": 1.5,
+    "labor_cost_per_head_million": 6.0
+  },
+  "customer_waterfall_nrr": {
+    "churn": [-450, -480, -500, -520, -550],
+    "expansion": [650, 750, 850, 950, 1050],
+    "new_logo": [900, 980, 1050, 1120, 1200]
+  },
+  "synergy_and_pmi": {
+    "revenue_cross_sell": [300, 600, 900, 1200, 1500],
+    "revenue_new_service": [100, 250, 450, 650, 850],
+    "synergy_gross_margin": 0.40,
+    "cogs_procurement_saving": [50, 100, 150, 200, 250],
+    "sga_footprint_saving": [40, 80, 120, 150, 180],
+    "synergy_ramp_up": [0.0, 0.30, 0.60, 0.85, 1.0],
+    "one_off_pmi_system": [-120, -60, 0, 0, 0],
+    "one_off_pmi_advisory": [-80, -30, 0, 0, 0],
+    "one_off_pmi_restructuring": [-50, -20, 0, 0, 0]
+  },
+  "transaction_and_valuation": {
+    "entry_ebitda_multiple": 7.5,
+    "target_book_equity": 2500,
+    "exit_multiple": 8.0
+  }
+}

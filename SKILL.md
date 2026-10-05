@@ -1,12 +1,12 @@
 ---
 name: financial-modeling-skill
-description: 財務モデリング規約 modeling-rules.md（投資銀行・ファンド水準の約70項目の正典）を核に、経営会議・投資委員会品質の3表連動・DCF・LBO財務モデルExcelをステップバイステップで構築するスキル。作成前に規約を読み、6つのモデル型カタログから選定し、new_model.py で骨子を生成またはテンプレートを活用し、check_model.py の機械チェック FAIL 0 で仕上げる。トリガー例:「財務モデルを作って」「3表連動Excelを構築して」「DCFモデルを組んで」「LBOモデルを作って」「Excelの財務モデルを検証して」。
+description: 財務モデリング規約 modeling-rules.md（投資銀行・ファンド水準の約70項目の正典）を核に、経営会議・投資委員会品質の3表連動・DCF・LBO・BDD財務モデルExcelをステップバイステップで構築するスキル。作成前に規約を読み、8つのモデル型カタログから選定し、new_model.py で骨子を生成またはテンプレートを活用し、check_model.py の機械チェック FAIL 0 で仕上げる。トリガー例:「財務モデルを作って」「3表連動Excelを構築して」「DCFモデルを組んで」「LBOモデルを作って」「BDDモデルを作って」「Excelの財務モデルを検証して」。
 ---
 
 # 財務モデリングExcel構築スキル
 
 主軸は `references/modeling-rules.md`（実務の投資銀行・PEファンドのレビュー指摘を1行ずつ蓄積した約70項目の絶対規約）。
-作成前に全文を読み、`references/model-archetypes.md`（6つの型）から目的に応じたモデル構造を選定し、`scripts/new_model.py` でたたき台Excelを生成、`references/schedule-logic-guide.md` に従って各スケジュールと3表を連動させ、`scripts/check_model.py` による機械チェック **FAIL 0** で仕上げる。
+作成前に全文を読み、`references/model-archetypes.md`（8つの型）から目的に応じたモデル構造を選定し、`scripts/new_model.py` でたたき台Excelを生成、`references/schedule-logic-guide.md` に従って各スケジュールと3表を連動させ、`scripts/check_model.py` による機械チェック **FAIL 0** で仕上げる。
 
 成果物は、数式が100%連動し、セマンティックカラー（青字ハードコード／黒字計算式／緑字他シート参照）が施された `.xlsx` ファイル。
 
@@ -17,7 +17,7 @@ description: 財務モデリング規約 modeling-rules.md（投資銀行・フ�
 | ファイル | 中身 | 読む・使うタイミング |
 | --- | --- | --- |
 | `references/modeling-rules.md` | **規約の正典（約70項目）**。色彩・レイアウト・数式・3表連動・禁止事項 | **必読。モデル構築前に全文** |
-| `references/model-archetypes.md` | **6つのモデル型カタログ**（Type-01〜06）と選定デシジョンツリー | 案件スコープとモデル構造を決めるとき |
+| `references/model-archetypes.md` | **8つのモデル型カタログ**（Type-01〜08）と選定デシジョンツリー | 案件スコープとモデル構造を決めるとき |
 | `references/schedule-logic-guide.md` | **スケジュール連動計算ガイド**（PP&E、運転資本、借入、利益剰余金、間接法CF） | スケジュールと数式を組むとき |
 | `references/formula-smell-lexicon.md` | **数式の悪癖・アンチパターン辞典**（式内定数、IFERROR隠蔽、循環参照オン等） | 数式作成・リファクタリング時 |
 | `references/audit-checklist.md` | **納品前チェックリスト**（4段階のセルフ監査ゲート） | 機械チェック前後、納品前 |
@@ -61,6 +61,8 @@ description: 財務モデリング規約 modeling-rules.md（投資銀行・フ�
 - **Type-04**: キャッシュスイープ・負債返済優先モデル（プロジェクトファイナンス）
 - **Type-05**: LBOモデル（ファンド投資、リターンIRR・MoIC算定）
 - **Type-06**: M&A合算・財務統合モデル（シナジー、EPS希薄化分析）
+- **Type-07**: BDD将来損益・3表連動・バリューアップモデル（PEファンド実務、EBITDA正規化、KPIドライバー、3シナリオ、Exit試算）
+- **Type-08**: 事業会社向けBDD・M&A連結合算モデル（複数事業部、人員キャパ制約、NRR、100日PMI、買い手連結合算、J-GAAP/IFRS会計切替、EPS希薄化）
 
 ### Step 3: たたき台モデルの生成
 スクリプト `scripts/new_model.py` を実行するか、`templates/single_sheet_3statement_template.xlsx` をコピーしてベースを作成する：

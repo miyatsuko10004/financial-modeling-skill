@@ -6,7 +6,7 @@
 
 AIに投資銀行・PEファンド水準の財務モデル（3表連動・DCF・LBO・感応度分析）を構築させるためのフレームワーク。Claude Code、Codex、Google Antigravity（AGY）に対応しています。
 
-実務で培われたモデリング規約（約70項目）、規約違反を0.1秒で検出する自動検査バリデータ、6つのモデル型カタログ、数式連動計算ガイド、および完全合格（PERFECT PASS）の標準テンプレートを同梱しています。
+実務で培われたモデリング規約（約70項目）、規約違反を0.1秒で検出する自動検査バリデータ、8つのモデル型カタログ、数式連動計算ガイド、および完全合格（PERFECT PASS）の標準テンプレートを同梱しています。
 
 > An institutional financial modeling framework for Claude Code, Codex, and Antigravity. Enforces investment banking and private equity standards (~70 rules) with automated validation (`check_model.py`), preventing hardcoded constants, circular dependencies, and balance sheet mismatches.
 
@@ -62,9 +62,9 @@ flowchart LR
 
 ---
 
-## 6つの財務モデル型カタログ
+## 8つの財務モデル型カタログ
 
-案件の規模や分析目的に応じて、以下の6つのモデル型を使い分けます（詳細は `references/model-archetypes.md` を参照）。
+案件の規模や分析目的に応じて、以下の8つのモデル型を使い分けます（詳細は `references/model-archetypes.md` を参照）。
 
 - **Type-01: 単一シート3表連動モデル** — 前提・PL・BS・CF・DCF・感応度を縦1シートに集約。A列エレベーターコラムによるジャンプに対応し、機動的な事業価値評価に適する。
 - **Type-02: マルチシート詳細3表連動モデル** — 前提、財務3表、PP&E、デット、運転資本を個別シートにモジュール化。大規模な中期経営計画や複雑な事業別売上計画向け。
@@ -72,6 +72,8 @@ flowchart LR
 - **Type-04: 事業計画・感応度シミュレーション** — 複数シナリオ（Base / Best / Worst）の動的スイッチとKPIツリーを連動。資金調達や新規事業検証向け。
 - **Type-05: LBOモデル** — 買収資金使途、多層デットスケジュール、リターン（IRR / MoIC）算定に特化したPE投資向けモデル。
 - **Type-06: M&A合算・財務統合モデル** — 買収ストラクチャー、連結消去、のれん償却、EPS希薄化（Accretion / Dilution）を分析する統合モデル。
+- **Type-07: BDD将来損益・3表連動・バリューアップモデル** — PEファンド視点のビジネスDD実務特化型。過去実績の正規化（役員報酬・私的経費・一過性除外）、KPIドライバー（顧客数/Churn/ARPU）、シナジー発現ラグ、3シナリオ動的切替、Exit投資リターン（MoIC/IRR）を完備。
+- **Type-08: 事業会社向けBDD・M&A連結合算モデル** — 事業会社によるM&A実務特化型。部門別P/Lビルドアップ、人員ヘッドカウント・戦力化ラグによる供給能力制約、顧客売上ウォーターフォール（NRR）、100日プランPMI一時費用、買い手既存業績との連結合算、J-GAAP（20年均等規則償却）vs IFRS（非償却）会計スイッチ、連結プロフォルマEPS希薄化（Accretion/Dilution）分析を一気通貫で連動。
 
 ---
 
