@@ -1,0 +1,53 @@
+{
+  "project_name": "中堅精密部品メーカー買収におけるBDDバリューアップ財務モデル",
+  "archetype": "Type-07: BDD将来損益・3表連動・バリューアップモデル",
+  "base_year": 2022,
+  "model_type": "bdd",
+  "historical_data": {
+    "normalization": {
+      "reported_revenue": 10000,
+      "reported_cogs": -6500,
+      "reported_sga": -2500,
+      "officer_compensation_adj": 50,
+      "private_expenses_adj": 30,
+      "one_off_expenses_adj": 40,
+      "reported_depreciation": 200,
+      "reported_interest": 30,
+      "base_cash": 1000,
+      "base_ppe": 2000,
+      "base_debt": 1500,
+      "base_retained_earnings": 1500,
+      "annual_debt_repay": -150
+    }
+  },
+  "kpi_drivers": {
+    "base": {
+      "customers": [1000, 1050, 1100, 1150, 1200],
+      "churn_rate": [0.05, 0.045, 0.040, 0.035, 0.035],
+      "arpu": [10.0, 10.2, 10.5, 10.8, 11.0],
+      "cogs_ratio": [0.65, 0.64, 0.63, 0.62, 0.62]
+    },
+    "upside": {
+      "customers": [1000, 1080, 1170, 1260, 1350],
+      "churn_rate": [0.05, 0.040, 0.030, 0.025, 0.020],
+      "arpu": [10.0, 10.5, 11.0, 11.5, 12.0],
+      "cogs_ratio": [0.65, 0.63, 0.61, 0.60, 0.59]
+    },
+    "downside": {
+      "customers": [1000, 990, 980, 960, 950],
+      "churn_rate": [0.05, 0.060, 0.070, 0.075, 0.080],
+      "arpu": [10.0, 9.8, 9.6, 9.5, 9.5],
+      "cogs_ratio": [0.65, 0.66, 0.66, 0.67, 0.67]
+    }
+  },
+  "synergy_plan": {
+    "revenue_cross_sell": [0, 200, 400, 600, 800],
+    "cogs_procurement_saving": [0, 50, 100, 150, 200],
+    "ramp_up_ratio": [0.0, 0.30, 0.60, 0.85, 1.0]
+  },
+  "valuation_return": {
+    "entry_equity": 1500,
+    "exit_multiple": 8.0,
+    "holding_period": 4
+  }
+}

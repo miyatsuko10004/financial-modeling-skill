@@ -15,6 +15,7 @@
 | **Type-04** | **キャッシュスイープ返済モデル** | レバレッジド・ファイナンス、事業再生・私的整理、返済能力検証 | 実績1年＋予測5年 | `inp`, `IS`, `BS`, `CF`, `sweep` | DSCR（元利金返済カバー率）、年間繰上返済額、ネット有利子負債 |
 | **Type-05** | **ペーパーLBO / 詳細LBOモデル** | PEファンド投資検討、バイアウト買収、MBO計画策定 | 投資時＋保有3〜5年＋Exit | `inp`, `LBO_Summary`, `Debt_Waterfall`, `Returns` | レバレッジ倍率、Exit時株式価値、IRR（内部収益率）、MoIC（投下資本倍率） |
 | **Type-06** | **M&A合算・EPS希薄化モデル** | 経営統合、友好的TOB、株式交換/現金買収の財務影響分析 | 直近実績＋統合後3年 | `inp`, `CompanyA`, `CompanyB`, `PPA_Synergy`, `ProForma_IS_BS` | 合算売上/利益、のれん発生額、統合後EPS、増益/希薄化率(%) |
+| **Type-07** | **BDD将来損益・バリューアップモデル** | ビジネスDD（BDD）、PEファンド買収検討、バリューアップ計画策定 | 直近実績1年＋予測5年 | 1シート（`業績予想`）または多シート | 正規化EBITDA、シナジー計画、プロフォルマ3表、Exit EV、MoIC、IRR |
 
 ---
 
@@ -147,6 +148,27 @@
 
 ---
 
+### Type-07: BDD将来損益・バリューアップモデル（Business Due Diligence & Value Creation Model）
+
+- **主要モジュール**:
+  1. **シナリオ切替スイッチ（Scenario Controller）**:
+     - `C3` セル等のキースイッチ（1=Base, 2=Upside, 3=Downside）に基づき、`CHOOSE` 関数により全表のドライバー・業績予測・投資リターンが動的・瞬時に切り替わる構造。
+  2. **実績の正規化ブリッジ（EBITDA Normalization Bridge）**:
+     - 会計上の報告業績（Reported EBITDA）から、対象会社の真の実力値を算出。
+     - 役員報酬適正化、創業者私的・非業務経費除外、一過性損益（工場移転費、訴訟費用等）の足し戻しにより「正規化EBITDA（Normalized EBITDA）」を導出。
+  3. **KPIドライバー予測（KPI-Driven Operational Forecast）**:
+     - トップラインを単なる成長率（%）ではなく、業界特性に応じたKPIドライバー（顧客数、解約率Churn、単価ARPU、変動原価率等）に分解して将来予測。
+  4. **シナジー計画（Synergy Ramp-up Schedule）**:
+     - 売上クロスセル（買収先顧客基盤活用）、調達コスト削減（共同購買）等の施策ごとに、年次発現率（Ramp-up %）を織り込んだシナジー効果を定量化。
+  5. **プロフォルマ3表連動（Pro-forma 3-Statement Linking）**:
+     - スタンドアローン業績 ＋ シナジー ＝ プロフォルマPL（売上高、EBIT、EBITDA）。
+     - スケジュール連動（PP&E、デット返済、運転資本OWC）を経て、プロフォルマBS（全期間貸借一致）および間接法CF（現金プラグ）を完全連動。
+  6. **バリューアップ成果およびExitリターン試算（Value Creation & Returns）**:
+     - 5年後プロフォルマEBITDA × 想定Exit倍率 ＝ Exit時想定企業価値（EV）。
+     - Net Debt控除後の株式価値（Equity Proceeds）を算出し、スポンサー投下資本倍率（MoIC）および内部収益率（IRR）を自動算出。
+
+---
+
 ## どの型を選ぶべきかの決定フロー（Decision Tree）
 
 ```mermaid
@@ -157,6 +179,7 @@ flowchart TD
     Q2 -->|"DCF価値算定"| T3["Type-03: DCF バリュエーションモデル"]
     Q2 -->|"ファンド投資・LBO"| T5["Type-05: LBOモデル"]
     Q2 -->|"企業買収・統合影響"| T6["Type-06: M&A合算モデル"]
+    Q2 -->|"ビジネスDD・買収バリューアップ"| T7["Type-07: BDD将来損益モデル"]
     
     Q1 -->|"No（事業計画・財務管理）"| Q3{"資料粒度・プロジェクト納期は？"}
     Q3 -->|"短納期・決算書サマリのみ"| T1["Type-01: 単一シート完結型 3表モデル"]

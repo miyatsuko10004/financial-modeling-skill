@@ -522,9 +522,513 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
                  f"+$G$92*(1+{col}$104)/($C{r}-{col}$104)/(1+$C{r})^$G$86+$D$99+$D$100")
             apply_formula_cell(ws[f'{col}{r}'], f)
 
+def build_bdd_model(wb, title="ビジネスDD 企業価値向上・将来損益モデル", params=None):
+    """
+    Type-07: ビジネスデューデリジェンス（BDD）バリューアップ将来損益・3表連動モデル
+    1. 過去実績の正規化（EBITDA Normalization Bridge）
+    2. KPIドライバー設定（顧客数 × 解約率 × ARPU等 3シナリオ）
+    3. シナジー計画（売上シナジー ＋ コストシナジー × 実現タイムライン）
+    4. 3シナリオスイッチ（Base / Upside / Downside の動的切替）
+    5. プロフォルマ損益計算書（Stand-alone ＋ Synergy）
+    6. スケジュール連動（PP&E、デット、運転資本）
+    7. 貸借対照表（BS: 全期間貸借一致チェック完備）
+    8. キャッシュフロー計算書（間接法CF: 現金プラグ連動）
+    9. バリューアップ成果およびExitリターン試算（EV、Net Debt、Equity、MoIC、IRR）
+    """
+    ws = wb.active
+    ws.title = "業績予想"
+    ws.views.sheetView[0].showGridLines = True
+
+    p = params or {}
+    title = p.get("title", title)
+    unit = p.get("unit", "（単位：百万円）")
+    years = p.get("years", ["2022A", "2023E", "2024E", "2025E", "2026E"])
+    cols = ["C", "D", "E", "F", "G"]
+
+    ws.column_dimensions['A'].width = 18 # エレベーターコラム
+    ws.column_dimensions['B'].width = 38 # 項目名
+    ws.column_dimensions['C'].width = 15 # 実績
+    ws.column_dimensions['D'].width = 15 # 2023E
+    ws.column_dimensions['E'].width = 15 # 2024E
+    ws.column_dimensions['F'].width = 15 # 2025E
+    ws.column_dimensions['G'].width = 15 # 2026E
+
+    # タイトル行
+    ws['B1'].value = title
+    ws['B1'].font = Font(name=FONT_FAMILY_JP, size=14, bold=True, color="1B365D")
+    ws['G1'].value = unit
+    ws['G1'].font = Font(name=FONT_FAMILY_JP, size=9, color="595959")
+    ws['G1'].alignment = Alignment(horizontal="right")
+
+    # ==========================================
+    # （１）シナリオ選択コントロール
+    # ==========================================
+    apply_header_style(ws['A2'], "（１）シナリオ選択")
+    apply_header_style(ws['B2'], "シナリオ切替コントロール")
+    for col in cols:
+        apply_year_header(ws[f'{col}2'], "")
+
+    ws['B3'].value = "選択シナリオ番号 (1=Base, 2=Upside, 3=Downside)"
+    ws['B3'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_input_cell(ws['C3'], p.get("active_scenario", 1)) # デフォルト 1=Base
+    ws['C3'].number_format = "0"
+    apply_formula_cell(ws['D3'], '=CHOOSE(C3, "Base Case (標準)", "Upside Case (強気)", "Downside Case (弱気)")')
+    ws['D3'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True, color="1B365D")
+    ws['D3'].alignment = Alignment(horizontal="left")
+
+    # ==========================================
+    # （２）実績の正規化（EBITDA Normalization Bridge）
+    # ==========================================
+    apply_header_style(ws['A5'], "（２）実績正規化")
+    apply_header_style(ws['B5'], "実績損益・EBITDA正規化ブリッジ")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}5'], yr)
+
+    norm_cfg = p.get("normalization", {})
+    rep_rev = norm_cfg.get("reported_revenue", 5000)
+    rep_cogs = norm_cfg.get("reported_cogs", -3000)
+    rep_sga = norm_cfg.get("reported_sga", -1400)
+    rep_depr = norm_cfg.get("reported_depreciation", 200)
+
+    # 調整項目（青字入力）
+    adj_officer = norm_cfg.get("officer_compensation_adj", 50)
+    adj_personal = norm_cfg.get("personal_expense_adj", 30)
+    adj_moving = norm_cfg.get("one_time_moving_adj", 40)
+    adj_subsidy = norm_cfg.get("one_time_subsidy_adj", -20)
+
+    ws['B6'].value = "会計上売上高（Reported Revenue）"
+    apply_input_cell(ws['C6'], rep_rev)
+    ws['B7'].value = "会計上売上原価"
+    apply_input_cell(ws['C7'], rep_cogs)
+    ws['B8'].value = "会計上売上総利益"
+    apply_formula_cell(ws['C8'], "=C6+C7", is_subtotal=True)
+    ws['B9'].value = "会計上販売管理費"
+    apply_input_cell(ws['C9'], rep_sga)
+    ws['B10'].value = "会計上営業利益（Reported EBIT）"
+    ws['B10'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C10'], "=C8+C9", is_subtotal=True)
+    ws['B11'].value = "減価償却費（D&A）"
+    apply_input_cell(ws['C11'], rep_depr)
+    ws['B12'].value = "会計上EBITDA（Reported EBITDA）"
+    ws['B12'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C12'], "=C10+C11", is_subtotal=True)
+
+    ws['B13'].value = "【調整(+)】オーナー過大役員報酬の適正化"
+    apply_input_cell(ws['C13'], adj_officer)
+    ws['B14'].value = "【調整(+)】創業家私的経費・交際費等の除外"
+    apply_input_cell(ws['C14'], adj_personal)
+    ws['B15'].value = "【調整(+)】本社移転・一過性アドバイザリー費用"
+    apply_input_cell(ws['C15'], adj_moving)
+    ws['B16'].value = "【調整(-)】一過性助成金・受取保険金の控除"
+    apply_input_cell(ws['C16'], adj_subsidy)
+
+    ws['B17'].value = "実質収益力・調整後EBITDA（Normalized EBITDA）"
+    ws['B17'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True, color="1B365D")
+    apply_formula_cell(ws['C17'], "=C12+SUM(C13:C16)", is_total=True)
+    ws['B18'].value = "実質EBITDAマージン"
+    apply_formula_cell(ws['C18'], "=C17/C6", is_percent=True)
+
+    # ==========================================
+    # （３）KPIドライバー設定（3シナリオ）
+    # ==========================================
+    apply_header_style(ws['A20'], "（３）KPIドライバー")
+    apply_header_style(ws['B20'], "事業KPIドライバー（顧客数 × ARPU × 原価率）")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}20'], yr)
+
+    kpi_cfg = p.get("kpi", {})
+    base_net_add = kpi_cfg.get("base_net_add", [30, 35, 40, 45])
+    base_churn = kpi_cfg.get("base_churn", [0.05, 0.045, 0.04, 0.04])
+    base_arpu = kpi_cfg.get("base_arpu", [10.0, 10.2, 10.5, 10.8])
+    base_cogs_r = kpi_cfg.get("base_cogs_ratio", [0.55, 0.54, 0.53, 0.52])
+
+    up_net_add = kpi_cfg.get("upside_net_add", [45, 55, 65, 75])
+    up_churn = kpi_cfg.get("upside_churn", [0.04, 0.035, 0.03, 0.03])
+    up_arpu = kpi_cfg.get("upside_arpu", [10.5, 11.0, 11.5, 12.0])
+    up_cogs_r = kpi_cfg.get("upside_cogs_ratio", [0.53, 0.51, 0.50, 0.49])
+
+    down_net_add = kpi_cfg.get("downside_net_add", [15, 15, 20, 20])
+    down_churn = kpi_cfg.get("downside_churn", [0.07, 0.07, 0.065, 0.065])
+    down_arpu = kpi_cfg.get("downside_arpu", [9.5, 9.5, 9.6, 9.7])
+    down_cogs_r = kpi_cfg.get("downside_cogs_ratio", [0.57, 0.57, 0.56, 0.56])
+
+    ws['B22'].value = "[Base] 新規獲得顧客数 (社)"
+    ws['B23'].value = "[Base] 顧客解約率 (Churn Rate)"
+    ws['B24'].value = "[Base] 顧客あたり年間ARPU (百万円)"
+    ws['B25'].value = "[Base] 変動売上原価率 (%)"
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        apply_input_cell(ws[f'{col}22'], base_net_add[i])
+        apply_input_cell(ws[f'{col}23'], base_churn[i], is_percent=True)
+        apply_input_cell(ws[f'{col}24'], base_arpu[i])
+        apply_input_cell(ws[f'{col}25'], base_cogs_r[i], is_percent=True)
+
+    ws['B27'].value = "[Upside] 新規獲得顧客数 (社)"
+    ws['B28'].value = "[Upside] 顧客解約率 (Churn Rate)"
+    ws['B29'].value = "[Upside] 顧客あたり年間ARPU (百万円)"
+    ws['B30'].value = "[Upside] 変動売上原価率 (%)"
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        apply_input_cell(ws[f'{col}27'], up_net_add[i])
+        apply_input_cell(ws[f'{col}28'], up_churn[i], is_percent=True)
+        apply_input_cell(ws[f'{col}29'], up_arpu[i])
+        apply_input_cell(ws[f'{col}30'], up_cogs_r[i], is_percent=True)
+
+    ws['B32'].value = "[Downside] 新規獲得顧客数 (社)"
+    ws['B33'].value = "[Downside] 顧客解約率 (Churn Rate)"
+    ws['B34'].value = "[Downside] 顧客あたり年間ARPU (百万円)"
+    ws['B35'].value = "[Downside] 変動売上原価率 (%)"
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        apply_input_cell(ws[f'{col}32'], down_net_add[i])
+        apply_input_cell(ws[f'{col}33'], down_churn[i], is_percent=True)
+        apply_input_cell(ws[f'{col}34'], down_arpu[i])
+        apply_input_cell(ws[f'{col}35'], down_cogs_r[i], is_percent=True)
+
+    ws['B37'].value = "【適用】新規獲得顧客数 (社)"
+    ws['B37'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B38'].value = "【適用】顧客解約率 (Churn)"
+    ws['B38'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B39'].value = "【適用】顧客あたり年間ARPU (百万円)"
+    ws['B39'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B40'].value = "【適用】変動売上原価率 (%)"
+    ws['B40'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B41'].value = "【適用】期末アクティブ顧客数 (社)"
+    ws['B41'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True, color="1B365D")
+
+    base_customers = kpi_cfg.get("base_customers", 500)
+    apply_input_cell(ws['C41'], base_customers)
+
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        apply_formula_cell(ws[f'{col}37'], f"=CHOOSE($C$3, {col}22, {col}27, {col}32)")
+        apply_formula_cell(ws[f'{col}38'], f"=CHOOSE($C$3, {col}23, {col}28, {col}33)", is_percent=True)
+        apply_formula_cell(ws[f'{col}39'], f"=CHOOSE($C$3, {col}24, {col}29, {col}34)")
+        apply_formula_cell(ws[f'{col}40'], f"=CHOOSE($C$3, {col}25, {col}30, {col}35)", is_percent=True)
+        prev_col = cols[i]
+        apply_formula_cell(ws[f'{col}41'], f"={prev_col}41*(1-{col}38)+{col}37", is_subtotal=True)
+
+    # ==========================================
+    # （４）シナジー計画（Synergy Plan）
+    # ==========================================
+    apply_header_style(ws['A43'], "（４）シナジー計画")
+    apply_header_style(ws['B43'], "バリューアップ・買収シナジー計画")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}43'], yr)
+
+    syn_cfg = p.get("synergy", {})
+    rev_syn_pot = syn_cfg.get("rev_synergy_potential", [200, 400, 600, 800])
+    cost_syn_pot = syn_cfg.get("cost_synergy_potential", [50, 100, 150, 200])
+    syn_ramp = syn_cfg.get("ramp_up_ratio", [0.30, 0.70, 1.00, 1.00])
+
+    ws['B44'].value = "売上シナジー潜在額（クロスセル・新規販路）"
+    ws['B45'].value = "コストシナジー潜在額（共同調達・機能集約）"
+    ws['B46'].value = "シナジー実現率（Ramp-up率）"
+    ws['B47'].value = "【発現】売上シナジー額"
+    ws['B47'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B48'].value = "【発現】コスト削減シナジー額"
+    ws['B48'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        apply_input_cell(ws[f'{col}44'], rev_syn_pot[i])
+        apply_input_cell(ws[f'{col}45'], cost_syn_pot[i])
+        apply_input_cell(ws[f'{col}46'], syn_ramp[i], is_percent=True)
+        apply_formula_cell(ws[f'{col}47'], f"={col}44*{col}46")
+        apply_formula_cell(ws[f'{col}48'], f"={col}45*{col}46")
+
+    # ==========================================
+    # （５）将来損益計算書（Stand-alone ＋ Synergy）
+    # ==========================================
+    apply_header_style(ws['A50'], "（５）将来損益計算書")
+    apply_header_style(ws['B50'], "プロフォルマ損益計算書（P/L）")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}50'], yr)
+
+    ws['B51'].value = "スタンドアローン売上高（顧客数 × ARPU）"
+    apply_formula_cell(ws['C51'], "=C6")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}51'], f"={col}41*{col}39")
+
+    ws['B52'].value = "（＋）売上シナジー"
+    apply_input_cell(ws['C52'], 0)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}52'], f"={col}47")
+
+    ws['B53'].value = "プロフォルマ売上高合計"
+    ws['B53'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C53'], "=C51+C52")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}53'], f"={col}51+{col}52", is_subtotal=True)
+
+    ws['B54'].value = "変動売上原価"
+    apply_formula_cell(ws['C54'], "=C7")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}54'], f"=-{col}53*{col}40")
+
+    ws['B55'].value = "（＋）調達コスト削減シナジー"
+    apply_input_cell(ws['C55'], 0)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}55'], f"={col}48")
+
+    ws['B56'].value = "プロフォルマ売上総利益"
+    ws['B56'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C56'], "=C53+C54+C55", is_subtotal=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}56'], f"={col}53+{col}54+{col}55", is_subtotal=True)
+
+    ws['B57'].value = "固定販管費（正規化ベース・物価スライド）"
+    apply_formula_cell(ws['C57'], "=C9+C13+C14+C15+C16")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}57'], f"=C57*(1+$C$85)") # 前提セルC85参照
+
+    ws['B58'].value = "プロフォルマ営業利益（EBIT）"
+    ws['B58'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C58'], "=C56+C57", is_subtotal=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}58'], f"={col}56+{col}57", is_subtotal=True)
+
+    ws['B59'].value = "支払利息（デットスケジュール連動）"
+    apply_input_cell(ws['C59'], -norm_cfg.get("reported_interest", 30))
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}59'], f"=-{col}76")
+
+    ws['B60'].value = "税引前当期純利益"
+    ws['B60'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C60'], "=C58+C59", is_subtotal=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}60'], f"={col}58+{col}59", is_subtotal=True)
+
+    ws['B61'].value = "法人税等"
+    apply_formula_cell(ws['C61'], "=-MAX(0, C60*$C$84)")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}61'], f"=-MAX(0, {col}60*$C$84)")
+
+    ws['B62'].value = "税引後当期純利益"
+    ws['B62'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['C62'], "=C60+C61", is_total=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}62'], f"={col}60+{col}61", is_total=True)
+
+    ws['B63'].value = "減価償却費（足し戻し）"
+    apply_formula_cell(ws['C63'], "=C11")
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}63'], f"=-{col}70")
+
+    ws['B64'].value = "プロフォルマEBITDA"
+    ws['B64'].font = Font(name=FONT_FAMILY_JP, size=11, bold=True, color="1B365D")
+    apply_formula_cell(ws['C64'], "=C58+C63", is_total=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}64'], f"={col}58+{col}63", is_total=True)
+
+    ws['B65'].value = "プロフォルマEBITDAマージン"
+    apply_formula_cell(ws['C65'], "=C64/C53", is_percent=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}65'], f"={col}64/{col}53", is_percent=True)
+
+    # ==========================================
+    # （６）スケジュール連動（PP&E、デット、運転資本）
+    # ==========================================
+    apply_header_style(ws['A67'], "（６）スケジュール")
+    apply_header_style(ws['B67'], "資産・負債スケジュール")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}67'], yr)
+
+    # PP&E
+    ws['B68'].value = "期首有形固定資産（PP&E）"
+    ws['B69'].value = "設備投資（維持Capex・マイナス）"
+    ws['B70'].value = "減価償却費"
+    ws['B71'].value = "期末有形固定資産"
+    ws['B71'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+
+    b_ppe = norm_cfg.get("base_ppe", 2000)
+    apply_input_cell(ws['C71'], b_ppe)
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        prev_col = cols[i]
+        apply_formula_cell(ws[f'{col}68'], f"={prev_col}71")
+        apply_formula_cell(ws[f'{col}69'], f"=-{col}68*{col}83") # 設備投資 Capex Ratio
+        apply_formula_cell(ws[f'{col}70'], f"=-{col}68*{col}83") # 減価償却費 Depr Ratio
+        apply_formula_cell(ws[f'{col}71'], f"={col}68-{col}69+{col}70", is_subtotal=True)
+
+    # Debt
+    ws['B73'].value = "期首借入金残高"
+    ws['B74'].value = "借入金約定返済額"
+    ws['B75'].value = "期末借入金残高"
+    ws['B75'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B76'].value = "支払利息（期首残高 × 金利）"
+
+    b_debt = norm_cfg.get("base_debt", 1500)
+    repay_val = norm_cfg.get("annual_debt_repay", -150)
+    apply_input_cell(ws['C75'], b_debt)
+    apply_input_cell(ws['C76'], norm_cfg.get("reported_interest", 30))
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        prev_col = cols[i]
+        apply_formula_cell(ws[f'{col}73'], f"={prev_col}75")
+        apply_input_cell(ws[f'{col}74'], repay_val)
+        apply_formula_cell(ws[f'{col}75'], f"={col}73+{col}74", is_subtotal=True)
+        apply_formula_cell(ws[f'{col}76'], f"={col}73*{col}86")
+
+    # 運転資本（OWC）
+    ws['B78'].value = "売掛金（売上高連動）"
+    ws['B79'].value = "買掛金（原価連動）"
+    ws['B80'].value = "正味運転資本（OWC）"
+    ws['B80'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+
+    apply_formula_cell(ws['C78'], "=C53*C87")
+    apply_formula_cell(ws['C79'], "=-C54*C88")
+    apply_formula_cell(ws['C80'], "=C78-C79", is_subtotal=True)
+    for col in ["D", "E", "F", "G"]:
+        apply_formula_cell(ws[f'{col}78'], f"={col}53*{col}87")
+        apply_formula_cell(ws[f'{col}79'], f"=-{col}54*{col}88")
+        apply_formula_cell(ws[f'{col}80'], f"={col}78-{col}79", is_subtotal=True)
+
+    # 前提セル（青字入力・オレンジ背景）
+    ws['B82'].value = "【共通モデル前提・マクロ前提】"
+    ws['B82'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B83'].value = "設備投資・減価償却率（Capex/Depr Ratio）"
+    ws['B84'].value = "実効税率（Tax Rate）"
+    ws['B85'].value = "物価上昇率（固定費スライド率）"
+    ws['B86'].value = "借入金利（Debt Interest Rate）"
+    ws['B87'].value = "売掛金対売上比率（AR % of Revenue）"
+    ws['B88'].value = "買掛金対原価比率（AP % of COGS）"
+    ws['B89'].value = "想定Exit倍率（EV/EBITDA Multiple）"
+    ws['B90'].value = "想定投資保有期間（年数: Years）"
+
+    for col in cols:
+        apply_input_cell(ws[f'{col}83'], 0.10, is_percent=True)
+        apply_input_cell(ws[f'{col}84'], 0.30, is_percent=True)
+        apply_input_cell(ws[f'{col}85'], 0.02, is_percent=True)
+        apply_input_cell(ws[f'{col}86'], 0.02, is_percent=True)
+        apply_input_cell(ws[f'{col}87'], 0.10, is_percent=True)
+        apply_input_cell(ws[f'{col}88'], 0.10, is_percent=True)
+    apply_input_cell(ws['C89'], p.get("exit_multiple", 8.0))
+    apply_input_cell(ws['C90'], 4)
+
+    # ==========================================
+    # （７）貸借対照表（BS）
+    # ==========================================
+    apply_header_style(ws['A92'], "（７）貸借対照表")
+    apply_header_style(ws['B92'], "プロフォルマ貸借対照表（BS）")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}92'], yr)
+
+    ws['B93'].value = "【資産の部】"
+    ws['B93'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B94'].value = "現預金"
+    ws['B95'].value = "売掛金"
+    ws['B96'].value = "有形固定資産（PP&E）"
+    ws['B97'].value = "資産合計"
+    ws['B97'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+
+    ws['B98'].value = "【負債・純資産の部】"
+    ws['B98'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
+    ws['B99'].value = "買掛金"
+    ws['B100'].value = "借入金"
+    ws['B101'].value = "資本金"
+    ws['B102'].value = "利益剰余金"
+    ws['B103'].value = "負債・純資産合計"
+    ws['B103'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+
+    ws['B104'].value = "バランスチェック（差額＝0検証）"
+    ws['B104'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True, color="C00000")
+
+    # 実績 C列
+    b_cash = norm_cfg.get("base_cash", 1000)
+    apply_formula_cell(ws['C94'], "=C115") # CF期末現金連動
+    apply_formula_cell(ws['C95'], "=C78")
+    apply_formula_cell(ws['C96'], "=C71")
+    apply_formula_cell(ws['C97'], "=SUM(C94:C96)", is_total=True)
+
+    apply_formula_cell(ws['C99'], "=C79")
+    apply_formula_cell(ws['C100'], "=C75")
+    # 資本金プラグ
+    b_re = norm_cfg.get("base_retained_earnings", 1500)
+    b_cap = (b_cash + (rep_rev*0.1) + b_ppe) - ((-rep_cogs*0.1) + b_debt + b_re)
+    apply_input_cell(ws['C101'], b_cap)
+    apply_input_cell(ws['C102'], b_re)
+    apply_formula_cell(ws['C103'], "=C99+C100+C101+C102", is_total=True)
+    apply_formula_cell(ws['C104'], "=C97-C103")
+
+    # 予測 D〜G列
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        prev_col = cols[i]
+        apply_formula_cell(ws[f'{col}94'], f"={col}115") # CF現金連動
+        apply_formula_cell(ws[f'{col}95'], f"={col}78")
+        apply_formula_cell(ws[f'{col}96'], f"={col}71")
+        apply_formula_cell(ws[f'{col}97'], f"=SUM({col}94:{col}96)", is_total=True)
+
+        apply_formula_cell(ws[f'{col}99'], f"={col}79")
+        apply_formula_cell(ws[f'{col}100'], f"={col}75")
+        apply_formula_cell(ws[f'{col}101'], "=C101") # 資本金据置
+        apply_formula_cell(ws[f'{col}102'], f"={prev_col}102+{col}62") # 利益剰余金ロールフォワード
+        apply_formula_cell(ws[f'{col}103'], f"={col}99+{col}100+{col}101+{col}102", is_total=True)
+        apply_formula_cell(ws[f'{col}104'], f"={col}97-{col}103") # 差額0
+
+    # ==========================================
+    # （８）キャッシュフロー計算書（間接法CF）
+    # ==========================================
+    apply_header_style(ws['A106'], "（８）キャッシュフロー")
+    apply_header_style(ws['B106'], "キャッシュフロー計算書（間接法CF）")
+    for col, yr in zip(cols, years):
+        apply_year_header(ws[f'{col}106'], yr)
+
+    ws['B107'].value = "税引後当期純利益"
+    ws['B108'].value = "減価償却費（足し戻し）"
+    ws['B109'].value = "Δ正味運転資本（前期−当期）"
+    ws['B110'].value = "営業活動によるキャッシュフロー"
+    ws['B110'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    ws['B111'].value = "設備投資額（Capex）"
+    ws['B112'].value = "借入金約定返済額"
+    ws['B113'].value = "当期純キャッシュ増減（Net CF）"
+    ws['B113'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    ws['B114'].value = "期首現預金残高"
+    ws['B115'].value = "期末現預金残高"
+    ws['B115'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+
+    apply_input_cell(ws['C115'], b_cash) # 実績手元現金
+
+    for i, col in enumerate(["D", "E", "F", "G"]):
+        prev_col = cols[i]
+        apply_formula_cell(ws[f'{col}107'], f"={col}62")
+        apply_formula_cell(ws[f'{col}108'], f"={col}63")
+        apply_formula_cell(ws[f'{col}109'], f"={prev_col}80-{col}80")
+        apply_formula_cell(ws[f'{col}110'], f"=SUM({col}107:{col}109)", is_subtotal=True)
+        apply_formula_cell(ws[f'{col}111'], f"={col}69")
+        apply_formula_cell(ws[f'{col}112'], f"={col}74")
+        apply_formula_cell(ws[f'{col}113'], f"={col}110+{col}111+{col}112", is_total=True)
+        apply_formula_cell(ws[f'{col}114'], f"={prev_col}115")
+        apply_formula_cell(ws[f'{col}115'], f"={col}114+{col}113", is_total=True)
+
+    # ==========================================
+    # （９）バリューアップ成果およびExitリターン試算
+    # ==========================================
+    apply_header_style(ws['A117'], "（９）投資リターン")
+    apply_header_style(ws['B117'], "バリューアップ成果およびExit投資リターン試算")
+    for col in cols:
+        apply_year_header(ws[f'{col}117'], "")
+
+    ws['B118'].value = "5年後プロフォルマEBITDA"
+    apply_formula_cell(ws['D118'], "=$G$64")
+    ws['B119'].value = "Exit時想定企業価値（EV: EBITDA × 倍率）"
+    ws['B119'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
+    apply_formula_cell(ws['D119'], "=D118*$C$89", is_subtotal=True)
+    ws['B120'].value = "Exit時純有利子負債（Net Debt: 借入金 − 現金）"
+    apply_formula_cell(ws['D120'], "=G100-G94")
+    ws['B121'].value = "Exit時株式価値（Equity Proceeds: EV − Net Debt）"
+    ws['B121'].font = Font(name=FONT_FAMILY_JP, size=11, bold=True, color="1B365D")
+    apply_formula_cell(ws['D121'], "=D119-D120", is_total=True)
+
+    ws['B122'].value = "買収時スポンサー出資額（Entry Equity）"
+    entry_equity = p.get("entry_equity", 1500)
+    apply_input_cell(ws['D122'], entry_equity)
+
+    ws['B123'].value = "投下資本倍率（MoIC: Multiple on Invested Capital）"
+    ws['B123'].font = Font(name=FONT_FAMILY_JP, size=11, bold=True, color="1B365D")
+    apply_formula_cell(ws['D123'], "=D121/D122")
+    ws['D123'].number_format = '0.00"x"'
+
+    ws['B124'].value = "内部収益率（IRR: 保有年数連動）"
+    ws['B124'].font = Font(name=FONT_FAMILY_JP, size=11, bold=True, color="1B365D")
+    apply_formula_cell(ws['D124'], "=(D121/D122)^(1/$C$90)-1", is_percent=True)
+
 def main():
     parser = argparse.ArgumentParser(description="財務モデリングExcel自動構築ジェネレータ")
-    parser.add_argument("--type", choices=["single", "multi", "dcf"], default="single", help="モデル型 (single, multi, dcf)")
+    parser.add_argument("--type", choices=["single", "multi", "dcf", "bdd"], default="single", help="モデル型 (single, multi, dcf, bdd)")
     parser.add_argument("--title", default="財務業績予測・3表連動モデル", help="モデルのタイトル")
     parser.add_argument("-o", "--output", default="financial_model.xlsx", help="出力Excelファイル名")
     parser.add_argument("--config", help="カスタムパラメータJSONファイル")
@@ -542,7 +1046,10 @@ def main():
             print(f"\033[31m[ERROR]\033[0m 設定ファイルが見つかりません: {args.config}")
             sys.exit(1)
 
-    if args.type == "single" or args.type == "dcf":
+    if args.type == "bdd":
+        print(f"財務モデル構築中 [Type-07: BDD バリューアップ将来損益モデル] -> {args.output}")
+        build_bdd_model(wb, title=args.title, params=params)
+    elif args.type == "single" or args.type == "dcf":
         print(f"財務モデル構築中 [Type-01: 単一シート3表連動 + DCF] -> {args.output}")
         build_single_sheet_model(wb, title=args.title, params=params)
     else:
@@ -561,3 +1068,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

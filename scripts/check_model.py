@@ -72,17 +72,16 @@ def check_hidden_rows_cols(wb):
 
 def check_time_axis_and_columns(ws):
     headers = []
-    for cell in ws[2]: # 通常2行目または1行目
-        val = str(cell.value).strip() if cell.value is not None else ""
-        if re.search(r'20\d\d[AEF]?', val) or re.search(r'FY\d\d', val):
-            headers.append((cell.column_letter, val))
-            
-    if not headers:
-        # 1行目も探す
-        for cell in ws[1]:
+    # 行1〜行10まで走査
+    for r in range(1, 11):
+        row_headers = []
+        for cell in ws[r]:
             val = str(cell.value).strip() if cell.value is not None else ""
             if re.search(r'20\d\d[AEF]?', val) or re.search(r'FY\d\d', val):
-                headers.append((cell.column_letter, val))
+                row_headers.append((cell.column_letter, val))
+        if len(row_headers) >= 3:
+            headers = row_headers
+            break
 
     if headers:
         log_pass(f"時間軸の横方向展開を検出: {', '.join([f'{col}={val}' for col, val in headers[:7]])}")
