@@ -11,8 +11,8 @@ new_model.py: 財務モデリングExcel自動構築ジェネレータ
 3. Type-03: DCF バリュエーションモデル（DCF Valuation Model）
 
 使い方:
-  python3 scripts/new_model.py --type single --title "株式会社キョウデン 財務モデル" -o output.xlsx
-  python3 scripts/new_model.py --type dcf --title "Company A DCF Valuation" -o dcf_model.xlsx
+  python3 scripts/new_model.py --type single --title "グローバル製造株式会社 財務モデル" -o output.xlsx
+  python3 scripts/new_model.py --type dcf --title "B2B SaaS 事業計画モデル" -o dcf_model.xlsx
   python3 scripts/new_model.py --config config.json -o custom_model.xlsx
 """
 
@@ -87,24 +87,27 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws.title = "業績予想"
     ws.views.sheetView[0].showGridLines = True
 
+    p = params or {}
+    title = p.get("title", title)
+    unit = p.get("unit", "（単位：百万円）")
+    years = p.get("years", ["2022A", "2023E", "2024E", "2025E", "2026E"])
+    cols = ["C", "D", "E", "F", "G"]
+
     # カラム幅の設定
     ws.column_dimensions['A'].width = 18 # エレベーターコラム
     ws.column_dimensions['B'].width = 30 # 項目名
-    ws.column_dimensions['C'].width = 14 # 2022A (実績)
-    ws.column_dimensions['D'].width = 14 # 2023E
-    ws.column_dimensions['E'].width = 14 # 2024E
-    ws.column_dimensions['F'].width = 14 # 2025E
-    ws.column_dimensions['G'].width = 14 # 2026E
+    ws.column_dimensions['C'].width = 14 # 実績
+    ws.column_dimensions['D'].width = 14
+    ws.column_dimensions['E'].width = 14
+    ws.column_dimensions['F'].width = 14
+    ws.column_dimensions['G'].width = 14
 
     # タイトル行
     ws['B1'].value = title
     ws['B1'].font = Font(name=FONT_FAMILY_JP, size=14, bold=True, color="1B365D")
-    ws['G1'].value = "（単位：百万円）"
+    ws['G1'].value = unit
     ws['G1'].font = Font(name=FONT_FAMILY_JP, size=9, color="595959")
     ws['G1'].alignment = Alignment(horizontal="right")
-
-    years = ["2022A", "2023E", "2024E", "2025E", "2026E"]
-    cols = ["C", "D", "E", "F", "G"]
 
     # ==========================================
     # （１）前提条件
@@ -114,19 +117,33 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     for col, yr in zip(cols, years):
         apply_year_header(ws[f'{col}2'], yr)
 
+    assump_config = p.get("assumptions", {})
+    rev_g = assump_config.get("revenue_growth", [0.05, 0.05, 0.04, 0.03])
+    cogs_r = assump_config.get("cogs_ratio", [0.65, 0.64, 0.63, 0.62, 0.62])
+    sga_r = assump_config.get("sga_ratio", [0.20, 0.20, 0.19, 0.19, 0.19])
+    tax_r = assump_config.get("tax_rate", [0.30, 0.30, 0.30, 0.30, 0.30])
+    capex_vals = assump_config.get("capex", [-600, -600, -500, -500])
+    depr_r = assump_config.get("depr_rate", [0.10, 0.10, 0.10, 0.10])
+    ar_d = assump_config.get("ar_days", [60.0, 60.0, 60.0, 60.0])
+    inv_d = assump_config.get("inv_days", [45.0, 45.0, 45.0, 45.0])
+    ap_d = assump_config.get("ap_days", [40.0, 40.0, 40.0, 40.0])
+    div_p = assump_config.get("div_payout", [0.30, 0.30, 0.30, 0.30])
+    debt_rep = assump_config.get("debt_repay", [-300, -300, -300, -300])
+    int_r = assump_config.get("interest_rate", [0.02, 0.02, 0.02, 0.02])
+
     assumptions = [
-        ("売上成長率", None, 0.05, 0.05, 0.04, 0.03, True),       # Row 3
-        ("売上原価率", 0.65, 0.64, 0.63, 0.62, 0.62, True),      # Row 4
-        ("販管費率（対売上）", 0.20, 0.20, 0.19, 0.19, 0.19, True),# Row 5
-        ("実効税率", 0.30, 0.30, 0.30, 0.30, 0.30, True),        # Row 6
-        ("設備投資額（Capex）", None, -600, -600, -500, -500, False), # Row 7 (マイナス)
-        ("減価償却率（期首PP&E比）", None, 0.10, 0.10, 0.10, 0.10, True), # Row 8
-        ("売掛金回転日数（日）", None, 60.0, 60.0, 60.0, 60.0, False), # Row 9
-        ("棚卸資産回転日数（日）", None, 45.0, 45.0, 45.0, 45.0, False),# Row 10
-        ("買掛金回転日数（日）", None, 40.0, 40.0, 40.0, 40.0, False), # Row 11
-        ("配当性向", None, 0.30, 0.30, 0.30, 0.30, True),         # Row 12
-        ("借入金約定返済額", None, -300, -300, -300, -300, False),  # Row 13 (マイナス)
-        ("借入金利", None, 0.02, 0.02, 0.02, 0.02, True)          # Row 14
+        ("売上成長率", None, rev_g[0], rev_g[1], rev_g[2], rev_g[3], True),       # Row 3
+        ("売上原価率", cogs_r[0], cogs_r[1], cogs_r[2], cogs_r[3], cogs_r[4], True), # Row 4
+        ("販管費率（対売上）", sga_r[0], sga_r[1], sga_r[2], sga_r[3], sga_r[4], True), # Row 5
+        ("実効税率", tax_r[0], tax_r[1], tax_r[2], tax_r[3], tax_r[4], True),   # Row 6
+        ("設備投資額（Capex）", None, capex_vals[0], capex_vals[1], capex_vals[2], capex_vals[3], False), # Row 7
+        ("減価償却率（期首PP&E比）", None, depr_r[0], depr_r[1], depr_r[2], depr_r[3], True), # Row 8
+        ("売掛金回転日数（日）", None, ar_d[0], ar_d[1], ar_d[2], ar_d[3], False), # Row 9
+        ("棚卸資産回転日数（日）", None, inv_d[0], inv_d[1], inv_d[2], inv_d[3], False), # Row 10
+        ("買掛金回転日数（日）", None, ap_d[0], ap_d[1], ap_d[2], ap_d[3], False), # Row 11
+        ("配当性向", None, div_p[0], div_p[1], div_p[2], div_p[3], True),        # Row 12
+        ("借入金約定返済額", None, debt_rep[0], debt_rep[1], debt_rep[2], debt_rep[3], False), # Row 13
+        ("借入金利", None, int_r[0], int_r[1], int_r[2], int_r[3], True)         # Row 14
     ]
 
     for idx, (label, c_val, d_val, e_val, f_val, g_val, is_pct) in enumerate(assumptions, start=3):
@@ -145,10 +162,22 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     for col, yr in zip(cols, years):
         apply_year_header(ws[f'{col}16'], yr)
 
+    base_cfg = p.get("base_year", {})
+    b_rev = base_cfg.get("revenue", 10000)
+    b_ppe = base_cfg.get("ppe", 4000)
+    b_re = base_cfg.get("retained_earnings", 2500)
+    b_ar = base_cfg.get("ar", 1650)
+    b_inv = base_cfg.get("inventory", 800)
+    b_ap = base_cfg.get("ap", 700)
+    b_debt = base_cfg.get("debt", 3000)
+    b_int = base_cfg.get("interest", 60)
+    b_cash = base_cfg.get("cash", 1500)
+    b_cap = base_cfg.get("capital", (b_cash + b_ar + b_inv + b_ppe) - (b_ap + b_debt + b_re))
+
     # 売上高 (Row 17)
     ws['B17'].value = "売上高"
     ws['B17'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
-    apply_input_cell(ws['C17'], 10000) # 基準年実績
+    apply_input_cell(ws['C17'], b_rev) # 基準年実績
     for i, col in enumerate(["D", "E", "F", "G"]):
         prev_col = cols[i]
         apply_formula_cell(ws[f'{col}17'], f"={prev_col}17*(1+{col}3)")
@@ -215,7 +244,7 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['B31'].value = "期末有形固定資産"
     ws['B31'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
 
-    apply_input_cell(ws['C31'], 4000) # 基準年実績（期末残高）
+    apply_input_cell(ws['C31'], b_ppe) # 基準年実績（期末残高）
 
     for i, col in enumerate(["D", "E", "F", "G"]):
         prev_col = cols[i]
@@ -238,7 +267,7 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['B37'].value = "期末利益剰余金"
     ws['B37'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
 
-    apply_input_cell(ws['C37'], 2500) # 基準年実績（期末残高）
+    apply_input_cell(ws['C37'], b_re) # 基準年実績（期末残高）
 
     for i, col in enumerate(["D", "E", "F", "G"]):
         prev_col = cols[i]
@@ -261,9 +290,9 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['B43'].value = "正味運転資本（OWC）"
     ws['B43'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
 
-    apply_input_cell(ws['C40'], 1650) # 基準年実績
-    apply_input_cell(ws['C41'], 800)
-    apply_input_cell(ws['C42'], 700)
+    apply_input_cell(ws['C40'], b_ar) # 基準年実績
+    apply_input_cell(ws['C41'], b_inv)
+    apply_input_cell(ws['C42'], b_ap)
     apply_formula_cell(ws['C43'], "=C40+C41-C42", is_subtotal=True)
     for col in ["D", "E", "F", "G"]:
         apply_formula_cell(ws[f'{col}40'], f"=({col}17/365)*{col}9")
@@ -286,8 +315,8 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['B49'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
     ws['B50'].value = "支払利息（期首残高*金利: 循環回避）"
 
-    apply_input_cell(ws['C49'], 3000) # 基準年実績（期末残高）
-    apply_input_cell(ws['C50'], 60)   # 基準年実績（支払利息）
+    apply_input_cell(ws['C49'], b_debt) # 基準年実績（期末残高）
+    apply_input_cell(ws['C50'], b_int)   # 基準年実績（支払利息）
 
     for i, col in enumerate(["D", "E", "F", "G"]):
         prev_col = cols[i]
@@ -338,7 +367,7 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
 
     apply_formula_cell(ws['C61'], "=C42")
     apply_formula_cell(ws['C62'], "=C49")
-    apply_input_cell(ws['C64'], 1750) # 資本金（基準年で貸借一致）
+    apply_input_cell(ws['C64'], b_cap) # 資本金（基準年で貸借一致）
     apply_formula_cell(ws['C65'], "=C37")
     apply_formula_cell(ws['C66'], "=C61+C62+C64+C65", is_total=True)
     apply_formula_cell(ws['C67'], "=C58-C66")
@@ -388,7 +417,7 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['B81'].font = Font(name=FONT_FAMILY_JP, size=10, bold=True)
 
     # 実績 C列（ベース期）
-    apply_input_cell(ws['C81'], 1500) # 実績手元現金
+    apply_input_cell(ws['C81'], b_cash) # 実績手元現金
 
     # 予測 D〜G列
     for i, col in enumerate(["D", "E", "F", "G"]):
@@ -437,8 +466,14 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
         ws[f'B{r}'].value = t
         ws[f'B{r}'].font = Font(name=FONT_FAMILY_JP, size=10 if r in (92, 94) else 9, bold=(r in (92, 94)))
 
-    apply_input_cell(ws['D84'], 0.07, is_percent=True)
-    apply_input_cell(ws['D85'], 0.005, is_percent=True)
+    dcf_cfg = p.get("dcf", {})
+    wacc_val = dcf_cfg.get("wacc", 0.07)
+    pgr_val = dcf_cfg.get("pgr", 0.005)
+    wacc_rng = dcf_cfg.get("wacc_range", [0.06, 0.065, 0.07, 0.075, 0.08])
+    pgr_rng = dcf_cfg.get("pgr_range", [0.0, 0.005, 0.01, 0.015])
+
+    apply_input_cell(ws['D84'], wacc_val, is_percent=True)
+    apply_input_cell(ws['D85'], pgr_val, is_percent=True)
     apply_input_cell(ws['D86'], 0.5)
     ws['D86'].number_format = "0.0"
     for i, col in enumerate(["D", "E", "F", "G"]):
@@ -478,9 +513,9 @@ def build_single_sheet_model(wb, title="財務業績予測・3表連動モデル
     ws['C104'].value = "WACC＼PGR"
     ws['C104'].font = Font(name=FONT_FAMILY_JP, size=9, bold=True)
     ws['C104'].alignment = Alignment(horizontal="right")
-    for col, g in zip(["D", "E", "F", "G"], [0.0, 0.005, 0.01, 0.015]):
+    for col, g in zip(["D", "E", "F", "G"], pgr_rng):
         apply_input_cell(ws[f'{col}104'], g, is_percent=True)
-    for r, w in zip(range(105, 110), [0.06, 0.065, 0.07, 0.075, 0.08]):
+    for r, w in zip(range(105, 110), wacc_rng):
         apply_input_cell(ws[f'C{r}'], w, is_percent=True)
         for col in ["D", "E", "F", "G"]:
             f = (f"=SUMPRODUCT($D$92:$G$92,1/(1+$C{r})^$D$86:$G$86)"
@@ -497,12 +532,22 @@ def main():
 
     wb = openpyxl.Workbook()
 
+    params = None
+    if args.config:
+        if os.path.exists(args.config):
+            with open(args.config, "r", encoding="utf-8") as f:
+                params = json.load(f)
+            print(f"カスタムパラメータ読込: {args.config}")
+        else:
+            print(f"\033[31m[ERROR]\033[0m 設定ファイルが見つかりません: {args.config}")
+            sys.exit(1)
+
     if args.type == "single" or args.type == "dcf":
         print(f"財務モデル構築中 [Type-01: 単一シート3表連動 + DCF] -> {args.output}")
-        build_single_sheet_model(wb, title=args.title)
+        build_single_sheet_model(wb, title=args.title, params=params)
     else:
         print("\033[33m[NOTE]\033[0m Type-02（マルチシート）は未実装のため Type-01 で生成します")
-        build_single_sheet_model(wb, title=args.title)
+        build_single_sheet_model(wb, title=args.title, params=params)
 
     wb.save(args.output)
     print(f"\033[32m[SUCCESS]\033[0m Excelモデルを生成しました: {args.output}")

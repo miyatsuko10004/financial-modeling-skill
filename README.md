@@ -118,6 +118,23 @@ python3 scripts/check_model.py my_model.xlsx
 
 ---
 
+## 複数パターンの実証検証（ネット例題・実在企業モデル）
+
+本フレームワークの汎用性を実証するため、ネット上の標準的ケーススタディ題材、および実在企業の財務諸表（製造業、SaaS、小売業等）の異なる4つのビジネスモデル・財務構造に対してモデルを自動構築し、`check_model.py` により検証を行っています。
+
+詳細は **[examples/VERIFICATION_REPORT.md](examples/VERIFICATION_REPORT.md)** をご覧ください。
+
+| ケースID | 対象パターン・ビジネスモデル | 財務的特徴 | FAIL | WARN | PASS | 判定結果 |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| **CASE-01** | **IBD標準例題（中堅機械メーカー）** | 売上100億円、原価率64%、借入返済、標準的な正の運転資本サイクル、DCF | 0 | 0 | 14 | **完全合格 (PERFECT PASS)** |
+| **CASE-02** | **高収益精密製造業（キーエンス型）** | 売上1,000億円、営業利益率50%超、無借金、手元資金400億円超 | 0 | 0 | 14 | **完全合格 (PERFECT PASS)** |
+| **CASE-03** | **エンタープライズ B2B SaaS（Sansan/freee型）** | 売上250億円、成長率+25%、高粗利、前受金による『負の運転資本』 | 0 | 0 | 14 | **完全合格 (PERFECT PASS)** |
+| **CASE-04** | **グローバルSPA小売（ファーストリテイリング型）** | 売上2,500億円、売掛金5日×買掛金65日による潤沢な営業CF、店舗Capex | 0 | 0 | 14 | **完全合格 (PERFECT PASS)** |
+
+> すべてのモデルで、**全期間でのBS貸借完全一致（差額 0.00）、式内定数ゼロ、現預金CF連動を達成し、FAIL 0 / WARN 0（100%合格）** を実証しています。
+
+---
+
 ## セットアップと使い方
 
 ### 導入方法
@@ -178,6 +195,10 @@ financial-modeling-skill/
 │   └── check_model.py      # 規約整合性バリデータ（機械検査エンジン）
 ├── templates/              # 【正本テンプレート】
 │   └── single_sheet_3statement_template.xlsx # PERFECT PASS 検証済みテンプレート
+├── examples/               # 【複数パターン実証・検証例】
+│   ├── VERIFICATION_REPORT.md # 4パターン整合性検証レポート
+│   ├── configs/            # 各パターンの前提パラメータJSON
+│   └── models/             # 生成されたExcel財務モデル（全合格）
 └── .github/
     └── workflows/
         └── ci.yml          # GitHub Actions CI（Python 3.10〜3.12 自動テスト）
